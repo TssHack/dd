@@ -73,7 +73,7 @@ bot.on('text', async (ctx) => {
 🆔 شناسه پیام: <code>${messageId}</code>  
 💬 متن پیام:  
 <pre>${ctx.message.text}</pre>  
-📌 برای پاسخ دادن، روی این پیام ریپلای کنید و شناسه پیام را در ابتدای پاسخ بنویسید.
+📌 برای پاسخ دادن، فقط روی این پیام ریپلای کنید.
         `, { parse_mode: 'HTML' });
 
         // تاییدیه زیبا به کاربر
@@ -91,26 +91,30 @@ bot.on('text', async (ctx) => {
 bot.on('message', async (ctx) => {
     if (ctx.chat.id.toString() === ADMIN_ID) {
         const replyTo = ctx.message.reply_to_message;
-        const messageText = ctx.message.text;
 
-        if (replyTo && messageText) {
-            const parts = messageText.split(' ');
-            const messageId = parts.shift();
-            const replyText = parts.join(' ').trim();
+        // اطمینان از اینکه پیام ادمین به پیام ناشناس ریپلای شده باشد
+        if (replyTo && replyTo.text) {
+            const messageId = replyTo.message_id;  // شناسه پیام ریپلای شده
+            const replyText = ctx.message.text;
 
-            if (anonymousMessages[messageId]) {
-                const userId = anonymousMessages[messageId].userId;
+            // بررسی پیام‌های ناشناس ذخیره شده
+            for (const [id, anonymousMessage] of Object.entries(anonymousMessages)) {
+                if (anonymousMessage.messageId === messageId) {
+                    const userId = anonymousMessage.userId;
 
-                // ارسال پاسخ با افکت زیبا
-                await bot.telegram.sendMessage(userId, `
+                    // ارسال پاسخ به کاربر
+                    await bot.telegram.sendMessage(userId, `
 📩 <b>پیام جدید از ادمین:</b>  
 🗨️ <i>${replyText}</i>  
-                `, { parse_mode: 'HTML' });
+                    `, { parse_mode: 'HTML' });
 
-                await ctx.reply('✅ پاسخ شما برای کاربر ارسال شد.');
-            } else {
-                await ctx.reply('⚠️ شناسه پیام معتبر نیست.');
+                    // پیام تایید به ادمین
+                    await ctx.reply('✅ پاسخ شما برای کاربر ارسال شد.');
+                    break;
+                }
             }
+        } else {
+            await ctx.reply('⚠️ لطفاً پیام خود را به همراه شناسه پیام ارسال کنید.');
         }
     }
 });
