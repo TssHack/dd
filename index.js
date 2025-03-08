@@ -1,4 +1,4 @@
-
+const { Telegraf } = require('telegraf');
 const axios = require('axios');
 
 const BOT_TOKEN = '7669314020:AAFaNAD56Sc23EQ5fsDc_DNYXr77dnfmQ4w';
