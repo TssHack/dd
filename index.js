@@ -1,12 +1,14 @@
-const { Telegraf, session } = require('telegraf');
-const { MemorySessionStore } = require('@telegraf/session');
+const { Telegraf } = require('telegraf');
 
 const BOT_TOKEN = '7669314020:AAFaNAD56Sc23EQ5fsDc_DNYXr77dnfmQ4w';
 const ADMIN_ID = '7257163892';
 
 const bot = new Telegraf(BOT_TOKEN);
-bot.use(session({ store: new MemorySessionStore() }));
 
+// استفاده از session داخلی خود Telegraf
+bot.use(Telegraf.session());
+
+// ذخیره پیام‌های ناشناس
 const anonymousMessages = {};
 
 // استارت ربات
