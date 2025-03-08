@@ -5,9 +5,6 @@ const ADMIN_ID = '7257163892';
 
 const bot = new Telegraf(BOT_TOKEN);
 
-// ذخیره سشن‌ها به‌صورت دستی در متغیر
-const sessions = {};  // اینجا سشن‌ها ذخیره می‌شوند
-
 // ذخیره پیام‌های ناشناس
 const anonymousMessages = {};
 
@@ -40,11 +37,8 @@ bot.start(async (ctx) => {
 bot.on('callback_query', async (ctx) => {
     if (ctx.callbackQuery.data === 'sendanon') {
         await ctx.answerCbQuery();
-        
-        // ذخیره وضعیت در سشن دستی
-        const userId = ctx.from.id;
-        sessions[userId] = sessions[userId] || {};
-        sessions[userId].anonymousMode = true;
+        ctx.session = ctx.session || {};
+        ctx.session.anonymousMode = true;
 
         await ctx.replyWithHTML(`
 <b>📝 لطفاً پیام خود را ارسال کنید:</b>  
@@ -55,11 +49,10 @@ bot.on('callback_query', async (ctx) => {
 
 // دریافت پیام ناشناس
 bot.on('text', async (ctx) => {
-    const userId = ctx.from.id;
-    sessions[userId] = sessions[userId] || {};
-
-    if (sessions[userId].anonymousMode) {
-        sessions[userId].anonymousMode = false;
+    ctx.session = ctx.session || {};
+    
+    if (ctx.session.anonymousMode) {
+        ctx.session.anonymousMode = false;
         const messageId = Date.now().toString();
 
         anonymousMessages[messageId] = {
@@ -67,14 +60,21 @@ bot.on('text', async (ctx) => {
             message: ctx.message.text
         };
 
-        // ارسال پیام به ادمین با افکت زیبا
+        // ارسال پیام به ادمین با دکمه برای پاسخ
         await bot.telegram.sendMessage(ADMIN_ID, `
 📩 <b>پیام ناشناس جدید:</b>  
 🆔 شناسه پیام: <code>${messageId}</code>  
 💬 متن پیام:  
 <pre>${ctx.message.text}</pre>  
-📌 برای پاسخ دادن، فقط روی این پیام ریپلای کنید.
-        `, { parse_mode: 'HTML' });
+📌 برای پاسخ دادن، روی دکمه زیر کلیک کنید:
+        `, {
+            parse_mode: 'HTML',
+            reply_markup: {
+                inline_keyboard: [
+                    [{ text: '✉️ پاسخ به این پیام', callback_data: `reply_${messageId}` }]
+                ]
+            }
+        });
 
         // تاییدیه زیبا به کاربر
         await ctx.replyWithChatAction('typing');
@@ -87,34 +87,28 @@ bot.on('text', async (ctx) => {
     }
 });
 
-// دریافت پاسخ از ادمین و ارسال به کاربر
-bot.on('message', async (ctx) => {
-    if (ctx.chat.id.toString() === ADMIN_ID) {
-        const replyTo = ctx.message.reply_to_message;
+// پاسخ دادن ادمین به پیام ناشناس
+bot.on('callback_query', async (ctx) => {
+    const data = ctx.callbackQuery.data;
+    
+    // بررسی اینکه آیا دکمه پاسخ به پیام ناشناس فشرده شده است
+    if (data.startsWith('reply_')) {
+        const messageId = data.split('_')[1];
+        const userId = anonymousMessages[messageId]?.userId;
+        
+        if (userId) {
+            const replyText = "پاسخ شما از طرف ادمین ارسال شد.";  // این متن می‌تواند توسط ادمین تغییر یابد
 
-        // اطمینان از اینکه پیام ادمین به پیام ناشناس ریپلای شده باشد
-        if (replyTo && replyTo.text) {
-            const messageId = replyTo.message_id;  // شناسه پیام ریپلای شده
-            const replyText = ctx.message.text;
-
-            // بررسی پیام‌های ناشناس ذخیره شده
-            for (const [id, anonymousMessage] of Object.entries(anonymousMessages)) {
-                if (anonymousMessage.messageId === messageId) {
-                    const userId = anonymousMessage.userId;
-
-                    // ارسال پاسخ به کاربر
-                    await bot.telegram.sendMessage(userId, `
+            // ارسال پاسخ به کاربر
+            await bot.telegram.sendMessage(userId, `
 📩 <b>پیام جدید از ادمین:</b>  
 🗨️ <i>${replyText}</i>  
-                    `, { parse_mode: 'HTML' });
+            `, { parse_mode: 'HTML' });
 
-                    // پیام تایید به ادمین
-                    await ctx.reply('✅ پاسخ شما برای کاربر ارسال شد.');
-                    break;
-                }
-            }
+            // تایید به ادمین
+            await ctx.answerCbQuery('✅ پاسخ شما ارسال شد!');
         } else {
-            await ctx.reply('⚠️ لطفاً پیام خود را به همراه شناسه پیام ارسال کنید.');
+            await ctx.answerCbQuery('⚠️ پیام ناشناس پیدا نشد.');
         }
     }
 });
