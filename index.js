@@ -132,3 +132,4 @@ bot.on('text', async (ctx) => {
             ctx.reply('خطا در دریافت پاسخ از API!', { reply_to_message_id: ctx.message.message_id });
         }
     }
+});
