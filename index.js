@@ -63,16 +63,17 @@ bot.on('callback_query', (ctx) => {
 
 // دریافت پیام‌های ناشناس
 bot.on('text', (ctx) => {
-    if (ctx.chat.type === 'private') {
-        const userMessage = ctx.message.text;
+    // بررسی اینکه آیا پیام در گروه است
+    if (ctx.chat.type !== 'supergroup' && ctx.chat.type !== 'group') return;
 
-        if (!userMessage.startsWith('/sendanon')) {
-            bot.telegram.sendMessage(ADMIN_ID, `
+    const userMessage = ctx.message.text;
+
+    if (!userMessage.startsWith('/sendanon')) {
+        bot.telegram.sendMessage(ADMIN_ID, `
 پیام ناشناس از کاربر @${ctx.from.username || 'نامشخص'} (${ctx.from.id}):
 <pre>${userMessage}</pre>
 `, { parse_mode: 'HTML' });
-            ctx.replyWithHTML('<b>پیام شما به صورت ناشناس برای ادمین ارسال شد. ✅</b>');
-        }
+        ctx.replyWithHTML('<b>پیام شما به صورت ناشناس برای ادمین ارسال شد. ✅</b>');
     }
 });
 
@@ -83,9 +84,12 @@ bot.command('sendanon', (ctx) => {
 
 // پاسخ به پیام‌ها با استفاده از دایره کلمات
 bot.on('text', async (ctx) => {
+    // بررسی اینکه آیا پیام در گروه است
+    if (ctx.chat.type !== 'supergroup' && ctx.chat.type !== 'group') return;
+
     const message = ctx.message.text;
 
-    // جستجو در دایره کلمات
+    // پاسخ به کلمات خاص
     for (let key in responseDictionary) {
         if (message.includes(key)) {
             const responses = responseDictionary[key];
@@ -109,30 +113,11 @@ bot.on('text', async (ctx) => {
             ctx.reply('خطا در دریافت پاسخ از API!', { reply_to_message_id: ctx.message.message_id });
         }
     }
-});
 
-// ارسال پیام‌ها در گروه‌ها
-bot.on('text', async (ctx) => {
-    if (ctx.chat.type !== 'supergroup' && ctx.chat.type !== 'group') return;
-
-    const message = ctx.message.text;
-    const replyTo = ctx.message.reply_to_message;
-
+    // پاسخ به پیام "سلام"
     if (message === 'سلام') {
         ctx.reply('سلام');
-    } else if (replyTo && replyTo.from.username === ctx.botInfo.username) {
-        try {
-            const response = await axios.get(`https://open.wiki-api.ir/apis-1/ReadyAnswer?q=${encodeURIComponent(message)}`);
-            if (response.data && response.data.results) {
-                ctx.reply(response.data.results, { reply_to_message_id: ctx.message.message_id });
-            } else {
-                ctx.reply('پاسخی یافت نشد!', { reply_to_message_id: ctx.message.message_id });
-            }
-        } catch (error) {
-            ctx.reply('خطا در دریافت پاسخ از API!', { reply_to_message_id: ctx.message.message_id });
-        }
     }
 });
 
 bot.launch();
-console.log('ربات فعال شد! 🚀');
