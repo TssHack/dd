@@ -81,30 +81,35 @@ bot.on('text', async (ctx) => {
             message: ctx.message.text
         };
 
-        // ارسال پیام به ادمین با دکمه برای پاسخ
-        await bot.telegram.sendMessage(ADMIN_ID, `
+        try {
+            // ارسال پیام به ادمین با دکمه برای پاسخ
+            await bot.telegram.sendMessage(ADMIN_ID, `
 📩 <b>پیام ناشناس جدید:</b>  
 🆔 شناسه پیام: <code>${messageId}</code>  
 💬 متن پیام:  
 <pre>${ctx.message.text}</pre>  
 📌 برای پاسخ دادن، روی دکمه زیر کلیک کنید:
-        `, {
-            parse_mode: 'HTML',
-            reply_markup: {
-                inline_keyboard: [
-                    [{ text: '✉️ پاسخ به این پیام', callback_data: `reply_${messageId}` }]
-                ]
-            }
-        });
+            `, {
+                parse_mode: 'HTML',
+                reply_markup: {
+                    inline_keyboard: [
+                        [{ text: '✉️ پاسخ به این پیام', callback_data: `reply_${messageId}` }]
+                    ]
+                }
+            });
 
-        // تاییدیه زیبا به کاربر
-        await ctx.replyWithChatAction('typing');
-        await new Promise(resolve => setTimeout(resolve, 1000));
+            // تاییدیه زیبا به کاربر
+            await ctx.replyWithChatAction('typing');
+            await new Promise(resolve => setTimeout(resolve, 1000));
 
-        return ctx.replyWithHTML(`
+            return ctx.replyWithHTML(`
 ✅ <b>پیام شما ناشناس ارسال شد!</b>  
 📨 منتظر پاسخ از ادمین باشید.
-        `);
+            `);
+        } catch (error) {
+            console.error('Error sending message to admin:', error);
+            await ctx.reply('⚠️ مشکلی در ارسال پیام به ادمین پیش آمد.');
+        }
     }
 });
 
