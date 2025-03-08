@@ -1,138 +1,114 @@
-const { Telegraf } = require('telegraf');
-const axios = require('axios');
+const { Telegraf, session } = require('telegraf');
+const { MemorySessionStore } = require('@telegraf/session');
 
 const BOT_TOKEN = '7669314020:AAFaNAD56Sc23EQ5fsDc_DNYXr77dnfmQ4w';
 const ADMIN_ID = '7257163892';
 
 const bot = new Telegraf(BOT_TOKEN);
+bot.use(session({ store: new MemorySessionStore() }));
 
-// دایره کلمات و عبارات
-const responseDictionary = {
-    "سلام": ["سلام!", "سلام به شما!", "درود بر شما!", "هی، سلام! 👋"],
-    "خداحافظ": ["خداحافظ! 👋", "بدرود!", "خدانگهدار!", "امیدوارم روز خوبی داشته باشید!"],
-    "کمک": ["چطور می‌توانم کمک کنم؟ 🤔", "چه کمکی از دست من برمی‌آید؟ 💡", "در چه زمینه‌ای نیاز به کمک دارید؟"],
-    "چه خبر؟": ["همه چیز عالیه!", "هیچی خاصی! تو چه خبر؟", "همه چیز خوبه, مرسی که پرسیدی! 😊"],
-    "پیام ناشناس": ["لطفاً پیام خود را بنویسید تا برای ادمین ارسال شود. ✨", "پیام شما بدون نمایش نام ارسال خواهد شد. ✉️"],
-};
+const anonymousMessages = {};
 
-// دکمه‌های شیشه‌ای
-const startKeyboard = [
-    [
-        { text: 'ارسال پیام ناشناس ✉️', callback_data: 'sendanon' },
-        { text: 'راهنما 📚', callback_data: 'help' }
-    ]
-];
-
-// دستور استارت با دکمه‌های شیشه‌ای
-bot.start((ctx) => {
-    ctx.replyWithHTML('<b>سلام!</b> 👋\nبرای ارسال پیام ناشناس به من، روی دکمه زیر کلیک کن یا از دستور <code>/sendanon</code> استفاده کن.', {
+// استارت ربات
+bot.start(async (ctx) => {
+    await ctx.replyWithHTML(`
+<b>✨ سلام ${ctx.from.first_name} عزیز!</b> 👋  
+به <b>ربات ارسال پیام ناشناس</b> خوش آمدی!  
+برای ارسال پیام ناشناس، روی دکمه زیر کلیک کن 👇  
+    `, {
         reply_markup: {
-            inline_keyboard: startKeyboard
+            inline_keyboard: [
+                [{ text: '💌 ارسال پیام ناشناس', callback_data: 'sendanon' }]
+            ]
         }
     });
 
-    // اطلاع‌رسانی به ادمین
+    // ارسال اطلاعیه به ادمین
     const user = ctx.from;
-    bot.telegram.sendMessage(ADMIN_ID, `
-یک کاربر جدید ربات را استارت کرده است. 🎉
-نام کاربر: ${user.first_name} ${user.last_name || ''}
-یوزرنیم: @${user.username || 'ندارد'}
-آیدی کاربر: ${user.id}
-زمان استارت: ${new Date().toLocaleString()}
-📝
-`);
+    await bot.telegram.sendMessage(ADMIN_ID, `
+🚀 <b>یک کاربر جدید ربات را استارت کرد</b>  
+👤 نام: ${user.first_name} ${user.last_name || ''}  
+🔗 یوزرنیم: @${user.username || 'ندارد'}  
+🆔 آیدی: <code>${user.id}</code>  
+⏰ زمان استارت: ${new Date().toLocaleString()}
+    `, { parse_mode: 'HTML' });
 });
 
-// دریافت دکمه‌های شیشه‌ای
-bot.on('callback_query', (ctx) => {
-    const callbackData = ctx.callbackQuery.data;
+// دکمه ارسال پیام ناشناس
+bot.on('callback_query', async (ctx) => {
+    if (ctx.callbackQuery.data === 'sendanon') {
+        await ctx.answerCbQuery();
+        ctx.session = ctx.session || {};
+        ctx.session.anonymousMode = true;
 
-    if (callbackData === 'sendanon') {
-        ctx.answerCbQuery('لطفا پیام خود را وارد کنید. پیام شما بدون نمایش نام ارسال خواهد شد. ✨');
-        ctx.replyWithHTML('<b>لطفا پیام خود را وارد کنید:</b>\n<code>پیام شما ناشناس ارسال خواهد شد.</code> 🌟');
-    } else if (callbackData === 'help') {
-        ctx.answerCbQuery('راهنمای استفاده از ربات 📚');
-        ctx.replyWithHTML(`
-            <b>راهنما:</b> 🔍
-            این ربات به شما این امکان را می‌دهد که پیام‌های ناشناس برای ادمین ارسال کنید. ✉️
-            کافیست پیام خود را وارد کنید و ادمین آن را دریافت خواهد کرد. 📬
-            <i>برای شروع، از دکمه‌های زیر استفاده کنید.</i> 👇
+        await ctx.replyWithHTML(`
+<b>📝 لطفاً پیام خود را ارسال کنید:</b>  
+<code>✉️ پیام شما به صورت ناشناس برای ادمین ارسال خواهد شد.</code>
         `);
     }
 });
 
-// دریافت پیام‌های ناشناس
-bot.on('text', (ctx) => {
-    if (ctx.chat.type === 'private') {
-        const userMessage = ctx.message.text;
-
-        if (!userMessage.startsWith('/sendanon')) {
-            bot.telegram.sendMessage(ADMIN_ID, `
-پیام ناشناس از کاربر @${ctx.from.username || 'نامشخص'} (${ctx.from.id}):
-<pre>${userMessage}</pre>
-`, { parse_mode: 'HTML' });
-            ctx.replyWithHTML('<b>پیام شما به صورت ناشناس برای ادمین ارسال شد. ✅</b>');
-        }
-    }
-});
-
-// دستور ارسال پیام ناشناس
-bot.command('sendanon', (ctx) => {
-    ctx.replyWithHTML('<b>لطفا پیام خود را وارد کنید:</b>\n<code>پیام شما ناشناس ارسال خواهد شد.</code> ✨');
-});
-
-// پاسخ به پیام‌ها با استفاده از دایره کلمات
+// دریافت پیام ناشناس
 bot.on('text', async (ctx) => {
-    const message = ctx.message.text;
+    ctx.session = ctx.session || {};
+    
+    if (ctx.session.anonymousMode) {
+        ctx.session.anonymousMode = false;
+        const messageId = Date.now().toString();
 
-    // جستجو در دایره کلمات
-    for (let key in responseDictionary) {
-        if (message.includes(key)) {
-            const responses = responseDictionary[key];
-            const randomResponse = responses[Math.floor(Math.random() * responses.length)];
-            ctx.reply(randomResponse);
-            return;
-        }
+        anonymousMessages[messageId] = {
+            userId: ctx.from.id,
+            message: ctx.message.text
+        };
+
+        // ارسال پیام به ادمین با افکت زیبا
+        await bot.telegram.sendMessage(ADMIN_ID, `
+📩 <b>پیام ناشناس جدید:</b>  
+🆔 شناسه پیام: <code>${messageId}</code>  
+💬 متن پیام:  
+<pre>${ctx.message.text}</pre>  
+📌 برای پاسخ دادن، روی این پیام ریپلای کنید و شناسه پیام را در ابتدای پاسخ بنویسید.
+        `, { parse_mode: 'HTML' });
+
+        // تاییدیه زیبا به کاربر
+        await ctx.replyWithChatAction('typing');
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        return ctx.replyWithHTML(`
+✅ <b>پیام شما ناشناس ارسال شد!</b>  
+📨 منتظر پاسخ از ادمین باشید.
+        `);
     }
+});
 
-    // اگر هیچ کلمه‌ای پیدا نشد، از API استفاده می‌کنیم
-    const replyTo = ctx.message.reply_to_message;
-    if (replyTo && replyTo.from.username === ctx.botInfo.username) {
-        try {
-            const response = await axios.get(`https://open.wiki-api.ir/apis-1/ReadyAnswer?q=${encodeURIComponent(message)}`);
-            if (response.data && response.data.results) {
-                ctx.reply(response.data.results, { reply_to_message_id: ctx.message.message_id });
+// دریافت پاسخ از ادمین و ارسال به کاربر
+bot.on('message', async (ctx) => {
+    if (ctx.chat.id.toString() === ADMIN_ID) {
+        const replyTo = ctx.message.reply_to_message;
+        const messageText = ctx.message.text;
+
+        if (replyTo && messageText) {
+            const parts = messageText.split(' ');
+            const messageId = parts.shift();
+            const replyText = parts.join(' ').trim();
+
+            if (anonymousMessages[messageId]) {
+                const userId = anonymousMessages[messageId].userId;
+
+                // ارسال پاسخ با افکت زیبا
+                await bot.telegram.sendMessage(userId, `
+📩 <b>پیام جدید از ادمین:</b>  
+🗨️ <i>${replyText}</i>  
+                `, { parse_mode: 'HTML' });
+
+                await ctx.reply('✅ پاسخ شما برای کاربر ارسال شد.');
             } else {
-                ctx.reply('پاسخی یافت نشد!', { reply_to_message_id: ctx.message.message_id });
+                await ctx.reply('⚠️ شناسه پیام معتبر نیست.');
             }
-        } catch (error) {
-            ctx.reply('خطا در دریافت پاسخ از API!', { reply_to_message_id: ctx.message.message_id });
         }
     }
 });
 
-// ارسال پیام‌ها در گروه‌ها
-bot.on('text', async (ctx) => {
-    if (ctx.chat.type !== 'supergroup' && ctx.chat.type !== 'group') return;
-
-    const message = ctx.message.text;
-    const replyTo = ctx.message.reply_to_message;
-
-    if (message === 'سلام') {
-        ctx.reply('سلام');
-    } else if (replyTo && replyTo.from.username === ctx.botInfo.username) {
-        try {
-            const response = await axios.get(`https://open.wiki-api.ir/apis-1/ReadyAnswer?q=${encodeURIComponent(message)}`);
-            if (response.data && response.data.results) {
-                ctx.reply(response.data.results, { reply_to_message_id: ctx.message.message_id });
-            } else {
-                ctx.reply('پاسخی یافت نشد!', { reply_to_message_id: ctx.message.message_id });
-            }
-        } catch (error) {
-            ctx.reply('خطا در دریافت پاسخ از API!', { reply_to_message_id: ctx.message.message_id });
-        }
-    }
-});
-
+// راه‌اندازی ربات
 bot.launch();
-console.log('ربات فعال شد! 🚀');
+console.log('🚀 ربات با موفقیت راه‌اندازی شد!');
