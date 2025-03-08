@@ -5,8 +5,8 @@ const ADMIN_ID = '7257163892';
 
 const bot = new Telegraf(BOT_TOKEN);
 
-// استفاده از session داخلی خود Telegraf
-bot.use(Telegraf.session());
+// ذخیره سشن‌ها به‌صورت دستی در متغیر
+const sessions = {};  // اینجا سشن‌ها ذخیره می‌شوند
 
 // ذخیره پیام‌های ناشناس
 const anonymousMessages = {};
@@ -40,8 +40,11 @@ bot.start(async (ctx) => {
 bot.on('callback_query', async (ctx) => {
     if (ctx.callbackQuery.data === 'sendanon') {
         await ctx.answerCbQuery();
-        ctx.session = ctx.session || {};
-        ctx.session.anonymousMode = true;
+        
+        // ذخیره وضعیت در سشن دستی
+        const userId = ctx.from.id;
+        sessions[userId] = sessions[userId] || {};
+        sessions[userId].anonymousMode = true;
 
         await ctx.replyWithHTML(`
 <b>📝 لطفاً پیام خود را ارسال کنید:</b>  
@@ -52,10 +55,11 @@ bot.on('callback_query', async (ctx) => {
 
 // دریافت پیام ناشناس
 bot.on('text', async (ctx) => {
-    ctx.session = ctx.session || {};
-    
-    if (ctx.session.anonymousMode) {
-        ctx.session.anonymousMode = false;
+    const userId = ctx.from.id;
+    sessions[userId] = sessions[userId] || {};
+
+    if (sessions[userId].anonymousMode) {
+        sessions[userId].anonymousMode = false;
         const messageId = Date.now().toString();
 
         anonymousMessages[messageId] = {
