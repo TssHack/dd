@@ -45,6 +45,27 @@ bot.on('callback_query', async (ctx) => {
 <code>✉️ پیام شما به صورت ناشناس برای ادمین ارسال خواهد شد.</code>
         `);
     }
+
+    // پاسخ به پیام ناشناس از ادمین
+    if (ctx.callbackQuery.data.startsWith('reply_')) {
+        const messageId = ctx.callbackQuery.data.split('_')[1];
+        const message = anonymousMessages[messageId];
+
+        if (message) {
+            const userId = message.userId;
+            const replyText = "پاسخ شما از طرف ادمین ارسال شد."; // متن قابل تغییر توسط ادمین
+
+            // ارسال پاسخ به کاربر
+            await bot.telegram.sendMessage(userId, `
+📩 <b>پیام جدید از ادمین:</b>  
+🗨️ <i>${replyText}</i>  
+            `, { parse_mode: 'HTML' });
+
+            await ctx.answerCbQuery('✅ پاسخ شما ارسال شد!');
+        } else {
+            await ctx.answerCbQuery('⚠️ پیام ناشناس پیدا نشد.');
+        }
+    }
 });
 
 // دریافت پیام ناشناس
@@ -84,32 +105,6 @@ bot.on('text', async (ctx) => {
 ✅ <b>پیام شما ناشناس ارسال شد!</b>  
 📨 منتظر پاسخ از ادمین باشید.
         `);
-    }
-});
-
-// پاسخ دادن ادمین به پیام ناشناس
-bot.on('callback_query', async (ctx) => {
-    const data = ctx.callbackQuery.data;
-    
-    // بررسی اینکه آیا دکمه پاسخ به پیام ناشناس فشرده شده است
-    if (data.startsWith('reply_')) {
-        const messageId = data.split('_')[1];
-        const userId = anonymousMessages[messageId]?.userId;
-        
-        if (userId) {
-            const replyText = "پاسخ شما از طرف ادمین ارسال شد.";  // این متن می‌تواند توسط ادمین تغییر یابد
-
-            // ارسال پاسخ به کاربر
-            await bot.telegram.sendMessage(userId, `
-📩 <b>پیام جدید از ادمین:</b>  
-🗨️ <i>${replyText}</i>  
-            `, { parse_mode: 'HTML' });
-
-            // تایید به ادمین
-            await ctx.answerCbQuery('✅ پاسخ شما ارسال شد!');
-        } else {
-            await ctx.answerCbQuery('⚠️ پیام ناشناس پیدا نشد.');
-        }
     }
 });
 
